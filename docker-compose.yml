@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  chatbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: doc-chatbot
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_NAME=${APP_NAME:-AI Documentation Chatbot}
+      - DEBUG=${DEBUG:-false}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-ada-002}
+      - CHUNK_SIZE=${CHUNK_SIZE:-512}
+      - TOP_K_RESULTS=${TOP_K_RESULTS:-5}
+      - ENABLE_MEMORY=${ENABLE_MEMORY:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./docs:/app/docs:ro
+      - ./storage:/app/storage
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: n8n for workflow automation
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-admin}
+      - WEBHOOK_URL=${N8N_WEBHOOK_URL:-http://localhost:5678}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+    depends_on:
+      - chatbot
+
+volumes:
+  n8n_data:

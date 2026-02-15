@@ -1,0 +1,129 @@
+# ==========================
+# Python cache / compiled
+# ==========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# ==========================
+# Distribution / packaging
+# ==========================
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.whl
+
+# ==========================
+# Virtual environments
+# ==========================
+venv/
+ENV/
+env/
+.venv/
+
+# ==========================
+# Environment variables (VERY IMPORTANT)
+# ==========================
+.env
+.env.local
+.env.*.local
+.env.backup
+.env.save
+
+# ==========================
+# AI / Model caches (CRITICAL)
+# Prevents huge uploads
+# ==========================
+.cache/
+.huggingface/
+llama_index/
+*.safetensors
+*.bin
+*.pt
+
+# ==========================
+# Storage / vector indexes
+# ==========================
+storage/
+*.index
+*.faiss
+*.db
+
+# ==========================
+# Logs
+# ==========================
+logs/
+*.log
+
+# ==========================
+# IDE / Editor
+# ==========================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ==========================
+# OS files
+# ==========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==========================
+# Testing / coverage
+# ==========================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# ==========================
+# Type checking
+# ==========================
+.mypy_cache/
+
+# ==========================
+# Jupyter notebooks
+# ==========================
+.ipynb_checkpoints/
+
+# ==========================
+# Documentation builds
+# ==========================
+docs/_build/
+
+# ==========================
+# Temporary files
+# ==========================
+tmp/
+temp/
+*.tmp
+
+# ==========================
+# Node frontend (future-safe)
+# ==========================
+node_modules/
+
+# ==========================
+# n8n / automation data
+# ==========================
+n8n_data/
