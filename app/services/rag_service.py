@@ -99,9 +99,19 @@ class RAGService:
             )
             logger.info("Using local HuggingFace embeddings (no API key required)")
         
-        # Disable LLM to prevent OpenAI API calls
-        LlamaSettings.llm = None
-        
+        # Configure LLM for LlamaIndex internals (if available)
+        if settings.LLM_PROVIDER == "openai" and settings.OPENAI_API_KEY:
+            from llama_index.llms.openai import OpenAI
+            LlamaSettings.llm = OpenAI(
+                model=settings.OPENAI_MODEL,
+                api_key=settings.OPENAI_API_KEY
+            )
+            logger.info("Using OpenAI LLM for LlamaIndex")
+        else:
+            # Keep disabled for non-OpenAI/fallback modes
+            LlamaSettings.llm = None
+            logger.info("LlamaIndex LLM disabled")
+
         logger.info("LlamaIndex settings configured")
     
     async def retrieve(self, query: str) -> Tuple[str, List[SourceDocument]]:
