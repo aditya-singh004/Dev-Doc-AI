@@ -90,9 +90,9 @@ import os
 project_root = Path(__file__).parent.parent.absolute()
 frontend_path = project_root / "frontend"
 
-print(f"Project root: {project_root}")
-print(f"Frontend path: {frontend_path}")
-print(f"Frontend exists: {frontend_path.exists()}")
+logger.debug(f"Project root: {project_root}")
+logger.debug(f"Frontend path: {frontend_path}")
+logger.debug(f"Frontend exists: {frontend_path.exists()}")
 
 if frontend_path.exists():
     app.mount("/static", StaticFiles(directory=str(frontend_path)), name="static")

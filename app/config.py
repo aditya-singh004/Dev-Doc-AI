@@ -4,6 +4,7 @@ Uses environment variables for sensitive data.
 """
 
 import os
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from typing import Optional
 
@@ -38,6 +39,7 @@ class Settings(BaseSettings):
     # Documentation Settings
     DOCS_DIRECTORY: str = "./docs"
     INDEX_STORAGE_PATH: str = "./storage/index"
+    AUTO_INGEST_ON_STARTUP: bool = True
     
     # Slack Settings
     SLACK_BOT_TOKEN: Optional[str] = None
@@ -56,6 +58,20 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def parse_debug(cls, value):
+        """Accept common non-boolean DEBUG values used in deployments."""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on", "debug", "development"}:
+                return True
+            if normalized in {"0", "false", "no", "off", "release", "prod", "production"}:
+                return False
+        return value
 
 
 # Global settings instance

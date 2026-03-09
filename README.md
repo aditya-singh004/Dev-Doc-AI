@@ -154,7 +154,39 @@ docker-compose down
 - **chatbot**: FastAPI backend (port 8000)
 - **n8n**: Workflow automation (port 5678)
 
-## 🔧 n8n Workflow Setup
+## Render Deployment
+
+This repo includes a Render blueprint in `render.yaml` for one-click setup.
+
+### Option 1: Blueprint (recommended)
+
+1. Push this repo to GitHub.
+2. In Render, click **New +** -> **Blueprint**.
+3. Select your repo.
+4. Set `OPENAI_API_KEY` in Render environment variables.
+5. Deploy.
+
+### Option 2: Manual Web Service
+
+- **Runtime**: Python 3.11
+- **Build Command**: `pip install -r requirements-render.txt`
+- **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- **Health Check Path**: `/api/v1/health`
+
+Required environment variables:
+
+- `OPENAI_API_KEY` (required)
+- `LLM_PROVIDER=openai`
+- `AUTO_INGEST_ON_STARTUP=true`
+- `DOCS_DIRECTORY=./docs`
+- `INDEX_STORAGE_PATH=/tmp/storage/index`
+
+Notes:
+
+- `storage/` is gitignored, so index is auto-created at startup from `docs/`.
+- `/tmp` on Render is ephemeral. Re-deploys may trigger re-ingestion.
+- Keep docs in `docs/` so auto-ingestion can build the index.
+## n8n Workflow Setup
 
 1. Access n8n at `http://localhost:5678`
 2. Import workflow from `n8n/workflow.json`
@@ -294,3 +326,4 @@ python scripts/ingest_docs.py
 - Reduce `CHUNK_SIZE`
 - Lower `TOP_K_RESULTS`
 - Use smaller embedding model
+

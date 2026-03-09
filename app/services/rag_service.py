@@ -49,8 +49,13 @@ class RAGService:
                 self._index = load_index_from_storage(storage_context)
                 logger.info("Index loaded successfully")
             else:
-                logger.info("No existing index found. Please run ingestion first.")
-                return False
+                logger.warning("No existing index found in storage.")
+                if not settings.AUTO_INGEST_ON_STARTUP:
+                    logger.info("Auto-ingestion disabled. Please run ingestion first.")
+                    return False
+
+                if not self._create_index_from_docs(storage_path):
+                    return False
             
             # Create retriever (not query engine) to avoid LLM requirement
             # Use the index's retriever method with explicit settings
@@ -64,6 +69,45 @@ class RAGService:
             
         except Exception as e:
             logger.error(f"Failed to initialize RAG service: {e}")
+            return False
+
+    def _create_index_from_docs(self, storage_path: Path) -> bool:
+        """Create and persist an index from DOCS_DIRECTORY."""
+        try:
+            from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
+
+            docs_path = Path(settings.DOCS_DIRECTORY)
+            if not docs_path.exists():
+                logger.error(
+                    f"Documentation directory not found: {docs_path}. "
+                    "Cannot auto-ingest."
+                )
+                return False
+
+            supported_extensions = [".pdf", ".md", ".txt", ".html", ".rst", ".json"]
+            reader = SimpleDirectoryReader(
+                input_dir=str(docs_path),
+                recursive=True,
+                required_exts=supported_extensions,
+                filename_as_id=True,
+            )
+            documents = reader.load_data()
+
+            if not documents:
+                logger.error("No documents found for auto-ingestion.")
+                return False
+
+            logger.info(
+                f"Auto-ingesting {len(documents)} documents from {docs_path}..."
+            )
+            self._index = VectorStoreIndex.from_documents(documents, show_progress=True)
+
+            storage_path.mkdir(parents=True, exist_ok=True)
+            self._index.storage_context.persist(persist_dir=str(storage_path))
+            logger.info(f"Auto-ingestion completed and persisted to {storage_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Auto-ingestion failed: {e}")
             return False
     
     def _configure_llama_settings(self):
