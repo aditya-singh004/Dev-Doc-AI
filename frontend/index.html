@@ -238,13 +238,14 @@
     </div>
 
     <script>
-        const API_URL = 'http://localhost:8000/api/v1/query';
+        const API_BASE_URL = window.location.origin;
+        const API_URL = `${API_BASE_URL}/api/v1/query`;
         let isLoading = false;
 
         // Check API health on load
         async function checkHealth() {
             try {
-                const response = await fetch('http://localhost:8000/api/v1/health');
+                const response = await fetch(`${API_BASE_URL}/api/v1/health`);
                 const data = await response.json();
                 document.getElementById('statusText').textContent = data.index_loaded ? 'Connected - Index Loaded' : 'Connected - No Index';
             } catch (error) {
