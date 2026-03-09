@@ -2,6 +2,12 @@
 
 An intelligent chatbot that integrates with Slack to answer technical queries instantly using a Retrieval-Augmented Generation (RAG) approach.
 
+## Live Demo
+
+- Chat UI: https://dev-doc-ai-1.onrender.com/chat
+- API Docs: https://dev-doc-ai-1.onrender.com/docs
+- Health Check: https://dev-doc-ai-1.onrender.com/api/v1/health
+
 ## 🏗️ Architecture
 
 ```
