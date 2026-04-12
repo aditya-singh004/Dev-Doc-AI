@@ -49,7 +49,27 @@ class Settings(BaseSettings):
     # Conversation Memory
     ENABLE_MEMORY: bool = True
     MAX_CONVERSATION_HISTORY: int = 10
-    
+
+    # Autonomous agent (/api/v1/agent/run) — uses OpenAI tool calling; requires OPENAI_API_KEY
+    AGENT_MAX_ITERATIONS: int = 10
+    # Budget for "expensive" tools: search_docs, http_get, slack_post_message
+    AGENT_MAX_TOOL_CALLS: int = 20
+    AGENT_MAX_WORKING_MEMORY_UPDATES: int = 10
+    AGENT_OPENAI_MODEL: Optional[str] = None  # defaults to OPENAI_MODEL if unset
+    AGENT_TOOL_TIMEOUT_SEC: float = 30.0
+    AGENT_RATE_LIMIT_PER_MINUTE: int = 30
+    AGENT_TRACE_PERSIST: bool = True
+    AGENT_TRACE_DIR: str = "./logs/agent_traces"
+    # Required with allow_sensitive_tools + matching approval_secret to run slack_post_message
+    AGENT_APPROVAL_SECRET: Optional[str] = None
+    # Comma-separated hostnames (e.g. api.example.com,localhost). Empty disables http_get tool.
+    AGENT_HTTP_ALLOWLIST_HOSTS: str = ""
+    AGENT_HTTP_MAX_BYTES: int = 524288
+    # Comma-separated Slack channel IDs allowed for slack_post_message (e.g. C0123...)
+    SLACK_POST_CHANNEL_ALLOWLIST: str = ""
+    AGENT_WORKING_MEMORY_ENABLED: bool = True
+    AGENT_WORKING_MEMORY_TTL_HOURS: int = 2
+
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = "./logs/app.log"

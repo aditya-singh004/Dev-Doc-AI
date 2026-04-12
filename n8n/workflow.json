@@ -59,7 +59,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extract and clean the message from Slack event\nconst event = $input.first().json.event || {};\nconst text = event.text || '';\nconst user = event.user || '';\nconst channel = event.channel || '';\nconst ts = event.ts || '';\n\n// Clean the message - remove mentions, emojis, etc.\nlet cleanedText = text\n  .replace(/<@[A-Z0-9]+>/g, '')  // Remove user mentions\n  .replace(/<#[A-Z0-9]+\\|[^>]+>/g, '')  // Remove channel mentions\n  .replace(/:[a-zA-Z0-9_+-]+:/g, '')  // Remove emoji codes\n  .replace(/<([^|>]+)\\|([^>]+)>/g, '$2')  // Keep link text\n  .replace(/<(https?:\\/\\/[^>]+)>/g, '$1')  // Keep URLs\n  .replace(/\\s+/g, ' ')  // Normalize whitespace\n  .trim();\n\n// Check if this is a bot message (skip if so)\nconst isBot = event.bot_id || event.subtype === 'bot_message';\n\nreturn {\n  json: {\n    query: cleanedText,\n    user_id: user,\n    channel_id: channel,\n    timestamp: ts,\n    original_text: text,\n    is_bot: isBot,\n    should_process: !isBot && cleanedText.length > 0\n  }\n};"
+        "jsCode": "// Extract and clean the message from Slack event\nconst event = $input.first().json.event || {};\nconst text = event.text || '';\nconst user = event.user || '';\nconst channel = event.channel || '';\nconst ts = event.ts || '';\n\nlet cleanedText = text\n  .replace(/<@[A-Z0-9]+>/g, '')\n  .replace(/<#[A-Z0-9]+\\|[^>]+>/g, '')\n  .replace(/:[a-zA-Z0-9_+-]+:/g, '')\n  .replace(/<([^|>]+)\\|([^>]+)>/g, '$2')\n  .replace(/<(https?:\\/\\/[^>]+)>/g, '$1')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nconst isBot = event.bot_id || event.subtype === 'bot_message';\n\nreturn {\n  json: {\n    query: cleanedText,\n    user_id: user,\n    channel_id: channel,\n    timestamp: ts,\n    original_text: text,\n    is_bot: isBot,\n    should_process: !isBot && cleanedText.length > 0\n  }\n};"
       },
       "id": "extract-message",
       "name": "Extract & Clean Message",
@@ -98,8 +98,18 @@
     },
     {
       "parameters": {
+        "jsCode": "// Route to /api/v1/agent/run or /api/v1/query (env: DDA_USE_AGENT=true|1 for agent)\nconst item = $input.first().json;\nconst v = process.env.DDA_USE_AGENT || '';\nconst useAgent = v === 'true' || v === '1';\nconst base = 'http://chatbot:8000';\nconst url = useAgent ? base + '/api/v1/agent/run' : base + '/api/v1/query';\nlet _dda_api_body;\nif (useAgent) {\n  _dda_api_body = {\n    query: item.query,\n    user_id: item.user_id,\n    channel_id: item.channel_id,\n    agent_session_id: 'slack:' + (item.user_id || 'anon'),\n    include_sources: true,\n    include_steps: false,\n    allow_sensitive_tools: process.env.DDA_AGENT_ALLOW_SENSITIVE === 'true',\n  };\n  const secret = process.env.DDA_AGENT_APPROVAL_SECRET;\n  if (secret) _dda_api_body.approval_secret = secret;\n} else {\n  _dda_api_body = {\n    query: item.query,\n    user_id: item.user_id,\n    channel_id: item.channel_id,\n    include_sources: true,\n  };\n}\nreturn { json: { ...item, _dda_api_url: url, _dda_api_body: _dda_api_body } };"
+      },
+      "id": "route-backend-api",
+      "name": "Route Backend API",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 300]
+    },
+    {
+      "parameters": {
         "method": "POST",
-        "url": "http://chatbot:8000/api/v1/query",
+        "url": "={{ $json._dda_api_url }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -111,26 +121,26 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"query\": \"{{ $json.query }}\",\n  \"user_id\": \"{{ $json.user_id }}\",\n  \"channel_id\": \"{{ $json.channel_id }}\",\n  \"include_sources\": true\n}",
+        "jsonBody": "={{ JSON.stringify($json._dda_api_body) }}",
         "options": {
-          "timeout": 30000
+          "timeout": 120000
         }
       },
       "id": "query-api",
-      "name": "Query Documentation API",
+      "name": "Call Backend API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [1130, 300]
+      "position": [1240, 300]
     },
     {
       "parameters": {
-        "jsCode": "// Format the API response for Slack\nconst response = $input.first().json;\nconst answer = response.answer || 'Sorry, I could not find an answer.';\nconst sources = response.sources || [];\nconst query = response.query || '';\n\n// Build Slack message blocks\nconst blocks = [\n  {\n    type: 'section',\n    text: {\n      type: 'mrkdwn',\n      text: answer\n    }\n  }\n];\n\n// Add sources if available\nif (sources.length > 0) {\n  blocks.push({\n    type: 'divider'\n  });\n  \n  const sourceText = sources\n    .slice(0, 3)  // Limit to 3 sources\n    .map((s, i) => `${i + 1}. *${s.source}*`)\n    .join('\\n');\n  \n  blocks.push({\n    type: 'context',\n    elements: [\n      {\n        type: 'mrkdwn',\n        text: `📚 *Sources:*\\n${sourceText}`\n      }\n    ]\n  });\n}\n\nreturn {\n  json: {\n    channel: $('Extract & Clean Message').first().json.channel_id,\n    thread_ts: $('Extract & Clean Message').first().json.timestamp,\n    blocks: blocks,\n    text: answer  // Fallback text\n  }\n};"
+        "jsCode": "const response = $input.first().json;\nconst answer = response.answer || 'Sorry, I could not find an answer.';\nconst sources = response.sources || [];\nconst blocks = [\n  {\n    type: 'section',\n    text: { type: 'mrkdwn', text: answer }\n  }\n];\n\nif (sources.length > 0) {\n  blocks.push({ type: 'divider' });\n  const sourceText = sources\n    .slice(0, 3)\n    .map((s, i) => `${i + 1}. *${s.source}*`)\n    .join('\\n');\n  blocks.push({\n    type: 'context',\n    elements: [\n      { type: 'mrkdwn', text: `📚 *Sources:*\\n${sourceText}` }\n    ]\n  });\n}\n\nif (response.trace_id) {\n  let meta = '`trace ' + String(response.trace_id).slice(0, 8) + '…`';\n  if (response.iterations != null) meta += ' · ' + response.iterations + ' iter';\n  if (response.tool_calls != null) meta += ' · ' + response.tool_calls + ' tools';\n  blocks.push({\n    type: 'context',\n    elements: [{ type: 'mrkdwn', text: meta }]\n  });\n}\n\nreturn {\n  json: {\n    channel: $('Extract & Clean Message').first().json.channel_id,\n    thread_ts: $('Extract & Clean Message').first().json.timestamp,\n    blocks: blocks,\n    text: answer\n  }\n};"
       },
       "id": "format-response",
       "name": "Format Slack Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1350, 300]
+      "position": [1460, 300]
     },
     {
       "parameters": {
@@ -148,7 +158,7 @@
       "name": "Send Slack Response",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.1,
-      "position": [1570, 300],
+      "position": [1680, 300],
       "credentials": {
         "slackOAuth2Api": {
           "id": "SLACK_CREDENTIAL_ID",
@@ -166,7 +176,7 @@
       "name": "Respond OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1790, 300]
+      "position": [1900, 300]
     },
     {
       "parameters": {
@@ -226,7 +236,7 @@
       "main": [
         [
           {
-            "node": "Query Documentation API",
+            "node": "Route Backend API",
             "type": "main",
             "index": 0
           }
@@ -240,7 +250,18 @@
         ]
       ]
     },
-    "Query Documentation API": {
+    "Route Backend API": {
+      "main": [
+        [
+          {
+            "node": "Call Backend API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Backend API": {
       "main": [
         [
           {
@@ -291,6 +312,6 @@
     }
   ],
   "triggerCount": 0,
-  "updatedAt": "2024-01-15T00:00:00.000Z",
-  "versionId": "1"
+  "updatedAt": "2026-04-12T00:00:00.000Z",
+  "versionId": "2"
 }

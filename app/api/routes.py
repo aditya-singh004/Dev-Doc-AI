@@ -2,15 +2,20 @@
 API routes for the documentation chatbot.
 """
 
+import secrets
 import time
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional, Tuple
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.models import (
     QueryRequest,
     QueryResponse,
     HealthResponse,
     ErrorResponse,
-    SlackEventPayload
+    SlackEventPayload,
+    AgentRunRequest,
+    AgentRunResponse,
 )
 from app.config import settings
 from app.utils.logger import logger
@@ -18,11 +23,15 @@ from app.utils.text_cleaner import clean_slack_message
 from app.services.rag_service import RAGService
 from app.services.llm_service import LLMService
 from app.services.memory_service import conversation_memory
+from app.services.agent_service import DocumentationAgentService
+from app.services.agent_working_memory import agent_working_memory
+from app.utils.agent_rate_limit import agent_rate_limiter
 
 router = APIRouter()
 
 # Service instances
 rag_service = RAGService()
+documentation_agent = DocumentationAgentService(rag_service)
 llm_service = None
 
 
@@ -123,6 +132,139 @@ async def query_documentation(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _clamp_agent_limits(
+    max_iterations: Optional[int], max_tool_calls: Optional[int]
+) -> Tuple[int, int]:
+    mi = max_iterations if max_iterations is not None else settings.AGENT_MAX_ITERATIONS
+    mt = max_tool_calls if max_tool_calls is not None else settings.AGENT_MAX_TOOL_CALLS
+    mi = min(max(mi, 1), 50)
+    mt = min(max(mt, 0), 100)
+    return mi, mt
+
+
+def _client_ip(http_request: Request) -> str:
+    forwarded = http_request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if http_request.client:
+        return http_request.client.host
+    return "unknown"
+
+
+def _agent_working_memory_key(req: AgentRunRequest, http_request: Request) -> str:
+    if req.agent_session_id and req.agent_session_id.strip():
+        return f"session:{req.agent_session_id.strip()}"
+    if req.user_id and req.user_id.strip():
+        return f"user:{req.user_id.strip()}"
+    return f"ip:{_client_ip(http_request)}"
+
+
+@router.post(
+    "/agent/run",
+    response_model=AgentRunResponse,
+    responses={500: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+    tags=["Agent"],
+)
+async def run_documentation_agent(
+    request: AgentRunRequest, http_request: Request
+):
+    """
+    Autonomous agent with tools: ``search_docs``, ``update_working_memory``, optional
+    allowlisted ``http_get``, optional ``slack_post_message`` (gated by approval secret).
+    Traces are persisted under ``AGENT_TRACE_DIR`` when enabled. Requires ``OPENAI_API_KEY``.
+    """
+    start_time = time.time()
+    cleaned = clean_slack_message(request.query)
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="Empty query after cleaning")
+
+    if not settings.OPENAI_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Agent mode requires OPENAI_API_KEY in the environment.",
+        )
+
+    rate_key = (
+        request.user_id.strip()
+        if request.user_id and request.user_id.strip()
+        else _client_ip(http_request)
+    )
+    try:
+        agent_rate_limiter.check(f"agent:{rate_key}")
+    except RuntimeError as e:
+        raise HTTPException(status_code=429, detail=str(e))
+
+    max_iter, max_tools = _clamp_agent_limits(
+        request.max_iterations, request.max_tool_calls
+    )
+
+    wm_key = _agent_working_memory_key(request, http_request)
+    sec = settings.AGENT_APPROVAL_SECRET or ""
+    tok = request.approval_secret or ""
+    sensitive_ok = False
+    if request.allow_sensitive_tools and sec and tok and len(tok) == len(sec):
+        sensitive_ok = secrets.compare_digest(tok, sec)
+
+    history = None
+    if request.user_id and settings.ENABLE_MEMORY:
+        history = conversation_memory.get_formatted_history(request.user_id)
+
+    try:
+        answer, sources, trace_id, iterations_used, tools_used, steps = (
+            await documentation_agent.run(
+                cleaned,
+                working_memory_key=wm_key,
+                conversation_history=history,
+                max_iterations=max_iter,
+                max_tool_calls=max_tools,
+                include_step_logs=request.include_steps,
+                sensitive_tools_approved=sensitive_ok,
+            )
+        )
+    except RuntimeError as e:
+        logger.error("Agent runtime error: %s", e)
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        logger.error("Agent error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if request.user_id and settings.ENABLE_MEMORY:
+        conversation_memory.add_message(request.user_id, "user", cleaned)
+        conversation_memory.add_message(request.user_id, "assistant", answer)
+
+    elapsed_ms = (time.time() - start_time) * 1000
+    return AgentRunResponse(
+        answer=answer,
+        query=cleaned,
+        sources=sources if request.include_sources else [],
+        trace_id=trace_id,
+        iterations=iterations_used,
+        tool_calls=tools_used,
+        timestamp=datetime.utcnow(),
+        processing_time_ms=elapsed_ms,
+        steps=steps if request.include_steps else None,
+    )
+
+
+@router.delete("/agent/working-memory", tags=["Agent"])
+async def clear_agent_working_memory(
+    agent_session_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+):
+    """Clear agent working memory (goals/subtasks/findings) for a session or user key."""
+    if agent_session_id and agent_session_id.strip():
+        key = f"session:{agent_session_id.strip()}"
+    elif user_id and user_id.strip():
+        key = f"user:{user_id.strip()}"
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide query param agent_session_id or user_id",
+        )
+    agent_working_memory.clear(key)
+    return {"status": "cleared", "working_memory_key": key}
+
+
 @router.post("/slack/events", tags=["Slack"])
 async def handle_slack_events(payload: SlackEventPayload):
     """
@@ -150,8 +292,8 @@ async def handle_slack_events(payload: SlackEventPayload):
             logger.info(f"Received Slack message from {user} in {channel}")
             
             # Note: For n8n integration, this endpoint mainly handles
-            # URL verification. The actual message processing happens
-            # through the /query endpoint called by n8n.
+            # URL verification. Message processing is done by n8n calling
+            # /api/v1/agent/run or /api/v1/query (see n8n/workflow.json).
             
             return {"status": "received"}
     
@@ -183,9 +325,23 @@ async def get_stats():
     return {
         "index": rag_service.get_index_stats(),
         "memory": conversation_memory.get_stats(),
+        "agent_working_memory": agent_working_memory.stats(),
         "config": {
             "llm_provider": settings.LLM_PROVIDER,
             "chunk_size": settings.CHUNK_SIZE,
-            "top_k": settings.TOP_K_RESULTS
+            "top_k": settings.TOP_K_RESULTS,
+            "agent_max_iterations": settings.AGENT_MAX_ITERATIONS,
+            "agent_max_tool_calls": settings.AGENT_MAX_TOOL_CALLS,
+            "agent_rate_limit_per_minute": settings.AGENT_RATE_LIMIT_PER_MINUTE,
+            "agent_trace_persist": settings.AGENT_TRACE_PERSIST,
+            "agent_trace_dir": settings.AGENT_TRACE_DIR,
+            "agent_http_allowlist_configured": bool(
+                (settings.AGENT_HTTP_ALLOWLIST_HOSTS or "").strip()
+            ),
+            "agent_slack_post_configured": bool(
+                settings.SLACK_BOT_TOKEN
+                and (settings.SLACK_POST_CHANNEL_ALLOWLIST or "").strip()
+            ),
+            "agent_approval_secret_configured": bool(settings.AGENT_APPROVAL_SECRET),
         }
     }

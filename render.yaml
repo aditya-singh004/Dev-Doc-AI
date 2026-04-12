@@ -27,3 +27,15 @@ services:
         value: INFO
       - key: OPENAI_API_KEY
         sync: false
+      - key: AGENT_TRACE_DIR
+        value: /tmp/logs/agent_traces
+      - key: AGENT_TRACE_PERSIST
+        value: "true"
+      - key: AGENT_APPROVAL_SECRET
+        sync: false
+      - key: AGENT_HTTP_ALLOWLIST_HOSTS
+        value: ""
+      - key: SLACK_POST_CHANNEL_ALLOWLIST
+        value: ""
+      - key: SLACK_BOT_TOKEN
+        sync: false

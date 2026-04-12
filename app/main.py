@@ -50,6 +50,8 @@ app = FastAPI(
     ## Endpoints
     
     - `/query` - Query documentation and get AI-generated answers
+    - `/agent/run` - Autonomous agent (tools, working memory, persisted traces)
+    - `/agent/working-memory` - Clear agent working memory (DELETE)
     - `/health` - Health check endpoint
     - `/slack/events` - Slack webhook handler
     - `/stats` - Service statistics

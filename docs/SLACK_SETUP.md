@@ -100,6 +100,27 @@ SLACK_SIGNING_SECRET=your-signing-secret-here
 
 3. The bot should respond with relevant documentation
 
+## n8n → Quick query vs autonomous agent
+
+The bundled workflow (`n8n/workflow.json`) calls the FastAPI backend after **Route Backend API**:
+
+| n8n container env | Backend endpoint |
+|-------------------|------------------|
+| `DDA_USE_AGENT=true` or `1` (default in `docker-compose.yml`) | `POST /api/v1/agent/run` |
+| `DDA_USE_AGENT=false` or unset | `POST /api/v1/query` |
+
+Agent requests send `agent_session_id: slack:<Slack user id>` so **working memory** is stable per Slack user.
+
+Optional, for the agent’s **`slack_post_message`** tool only (must match server config):
+
+- Set **`AGENT_APPROVAL_SECRET`** on the **chatbot** service.
+- Set **`DDA_AGENT_APPROVAL_SECRET`** on the **n8n** service to the **same** value.
+- Set **`DDA_AGENT_ALLOW_SENSITIVE=true`** on n8n when you intentionally want Slack posts from the agent.
+
+Set **`SLACK_BOT_TOKEN`** and **`SLACK_POST_CHANNEL_ALLOWLIST`** on the chatbot if you use that tool.
+
+Agent runs can take longer than a single query; the HTTP node timeout in the workflow is **120 seconds** (adjust in n8n if needed).
+
 ## Troubleshooting
 
 ### Bot Not Responding

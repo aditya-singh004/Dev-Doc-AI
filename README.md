@@ -1,6 +1,6 @@
 # AI-Powered Developer Documentation Chatbot
 
-An intelligent chatbot that integrates with Slack to answer technical queries instantly using a Retrieval-Augmented Generation (RAG) approach.
+An intelligent chatbot that integrates with Slack and a web UI to answer technical queries using **RAG** and an optional **autonomous agent** (OpenAI tool loop: documentation search, allowlisted HTTP, approval-gated Slack post, working memory, persisted traces).
 
 ## Live Demo
 
@@ -25,11 +25,13 @@ An intelligent chatbot that integrates with Slack to answer technical queries in
 
 ## ✨ Features
 
-- **Slack Integration**: Real-time message handling via webhooks
+- **Slack Integration**: Real-time message handling via webhooks (n8n → FastAPI)
+- **Web Chat UI**: `/chat` with **Quick** (`/query`) and **Agent** (`/agent/run`) modes
 - **RAG Pipeline**: Semantic search over documentation using LlamaIndex
-- **Multi-LLM Support**: OpenAI GPT or Google Gemini
-- **Conversation Memory**: Context-aware responses per user
-- **n8n Workflow**: Visual workflow automation
+- **Autonomous Agent**: Tool calling, separate working memory, rate limits, JSON trace files
+- **Multi-LLM Support**: OpenAI GPT or Google Gemini for `/query`; agent path uses OpenAI
+- **Conversation Memory**: Context-aware `/query` and agent transcript per `user_id`
+- **n8n Workflow**: Routes to **agent** or **quick** API via `DDA_USE_AGENT`
 - **Docker Ready**: Easy deployment with Docker Compose
 - **Modular Design**: Clean, maintainable codebase
 
@@ -46,13 +48,17 @@ An intelligent chatbot that integrates with Slack to answer technical queries in
 │   │   └── routes.py        # API endpoints
 │   ├── services/
 │   │   ├── __init__.py
-│   │   ├── rag_service.py   # LlamaIndex RAG
-│   │   ├── llm_service.py   # LLM integration
-│   │   └── memory_service.py # Conversation memory
+│   │   ├── rag_service.py        # LlamaIndex RAG
+│   │   ├── llm_service.py        # LLM integration
+│   │   ├── memory_service.py     # Conversation memory
+│   │   ├── agent_service.py      # Autonomous agent (OpenAI tools)
+│   │   ├── agent_working_memory.py
+│   │   └── agent_trace.py        # Persisted run traces (JSON)
 │   └── utils/
 │       ├── __init__.py
-│       ├── logger.py        # Logging setup
-│       └── text_cleaner.py  # Message preprocessing
+│       ├── logger.py             # Logging setup
+│       ├── text_cleaner.py       # Message preprocessing
+│       └── agent_rate_limit.py   # /agent/run rate limit
 ├── scripts/
 │   └── ingest_docs.py       # Documentation ingestion
 ├── n8n/
@@ -62,7 +68,9 @@ An intelligent chatbot that integrates with Slack to answer technical queries in
 │   └── [your documentation] # Add your docs here
 ├── storage/
 │   └── index/               # Vector store index
-├── logs/                    # Application logs
+├── frontend/
+│   └── index.html           # Chat UI (Quick + Agent)
+├── logs/                    # Application logs (and agent_traces/ when enabled)
 ├── .env.example             # Environment template
 ├── requirements.txt         # Python dependencies
 ├── Dockerfile               # Container definition
@@ -134,10 +142,15 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 # Health check
 curl http://localhost:8000/api/v1/health
 
-# Query documentation
+# Query documentation (single RAG + LLM)
 curl -X POST http://localhost:8000/api/v1/query \
   -H "Content-Type: application/json" \
   -d '{"query": "How do I authenticate?", "user_id": "test-user"}'
+
+# Autonomous agent (requires OPENAI_API_KEY; optional agent_session_id, approval for Slack tool)
+curl -X POST http://localhost:8000/api/v1/agent/run \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Summarize auth and Slack setup from docs", "user_id": "test-user", "agent_session_id": "cli-1", "include_sources": true}'
 ```
 
 ## 🐳 Docker Deployment
@@ -157,8 +170,8 @@ docker-compose down
 
 ### Services
 
-- **chatbot**: FastAPI backend (port 8000)
-- **n8n**: Workflow automation (port 5678)
+- **chatbot**: FastAPI backend (port 8000); chat UI at `http://localhost:8000/chat`
+- **n8n**: Workflow automation (port 5678). Set `DDA_USE_AGENT=true` (default in Compose) to call `/api/v1/agent/run`, or `false` for `/api/v1/query`. Optional: `DDA_AGENT_APPROVAL_SECRET` / `DDA_AGENT_ALLOW_SENSITIVE` for the Slack post tool (must align with `AGENT_APPROVAL_SECRET` on the chatbot).
 
 ## Render Deployment
 
@@ -181,11 +194,13 @@ This repo includes a Render blueprint in `render.yaml` for one-click setup.
 
 Required environment variables:
 
-- `OPENAI_API_KEY` (required)
+- `OPENAI_API_KEY` (required for embeddings and for `/agent/run`)
 - `LLM_PROVIDER=openai`
 - `AUTO_INGEST_ON_STARTUP=true`
 - `DOCS_DIRECTORY=./docs`
 - `INDEX_STORAGE_PATH=/tmp/storage/index`
+
+Optional agent-related variables are listed in [.env.example](.env.example) (`AGENT_*`, `SLACK_POST_CHANNEL_ALLOWLIST`, etc.).
 
 Notes:
 
@@ -199,6 +214,8 @@ Notes:
 3. Configure Slack OAuth2 credentials
 4. Update webhook URL in Slack app settings
 5. Activate the workflow
+
+The workflow includes **Route Backend API**: it posts to **`/api/v1/agent/run`** when the n8n container has `DDA_USE_AGENT=true` or `1`, otherwise **`/api/v1/query`**. Agent calls use `agent_session_id` `slack:<slack_user_id>` for working memory. Increase the HTTP node timeout if agent runs are slow (default 120s in the export).
 
 ## 💬 Slack Integration
 
@@ -217,7 +234,10 @@ Quick steps:
 |----------|--------|-------------|
 | `/` | GET | API information |
 | `/api/v1/health` | GET | Health check |
-| `/api/v1/query` | POST | Query documentation |
+| `/chat` | GET | Web chat UI (Quick + Agent) |
+| `/api/v1/query` | POST | Query documentation (RAG + LLM) |
+| `/api/v1/agent/run` | POST | Autonomous agent (tools, traces) |
+| `/api/v1/agent/working-memory` | DELETE | Clear agent working memory (`user_id` or `agent_session_id` query param) |
 | `/api/v1/slack/events` | POST | Slack webhook handler |
 | `/api/v1/memory/{user_id}` | DELETE | Clear user memory |
 | `/api/v1/stats` | GET | Service statistics |
@@ -251,6 +271,34 @@ Quick steps:
 }
 ```
 
+### Agent run request (excerpt)
+
+```json
+{
+  "query": "What do the docs say about Docker?",
+  "user_id": "U123",
+  "agent_session_id": "slack:U123",
+  "include_sources": true,
+  "allow_sensitive_tools": false,
+  "approval_secret": null
+}
+```
+
+### Agent run response (excerpt)
+
+```json
+{
+  "answer": "...",
+  "sources": [],
+  "trace_id": "uuid",
+  "iterations": 3,
+  "tool_calls": 2,
+  "processing_time_ms": 8500
+}
+```
+
+Traces are also written as JSON under `AGENT_TRACE_DIR` when `AGENT_TRACE_PERSIST=true`.
+
 ## ⚙️ Configuration
 
 | Variable | Default | Description |
@@ -262,16 +310,22 @@ Quick steps:
 | `TOP_K_RESULTS` | 5 | Number of retrieved docs |
 | `ENABLE_MEMORY` | true | Enable conversation memory |
 | `MAX_CONVERSATION_HISTORY` | 10 | Max messages to remember |
+| `AGENT_MAX_ITERATIONS` | 10 | Agent LLM rounds (cap) |
+| `AGENT_MAX_TOOL_CALLS` | 20 | Budget for search/http/Slack tools per run |
+| `AGENT_APPROVAL_SECRET` | (unset) | Required on requests that allow `slack_post_message` |
+| `AGENT_TRACE_PERSIST` | true | Write JSON traces to `AGENT_TRACE_DIR` |
+| `AGENT_RATE_LIMIT_PER_MINUTE` | 30 | Per-user/IP limit on `/agent/run` |
 
-See [.env.example](.env.example) for all options.
+See [.env.example](.env.example) for all options (including `AGENT_HTTP_ALLOWLIST_HOSTS`, `SLACK_POST_CHANNEL_ALLOWLIST`, and n8n `DDA_*` variables).
 
 ## 🔒 Security Considerations
 
-- Store API keys in environment variables
+- Store API keys in environment variables (`OPENAI_API_KEY`, `AGENT_APPROVAL_SECRET`, Slack tokens)
 - Use HTTPS in production
 - Verify Slack request signatures
-- Implement rate limiting
-- Restrict CORS origins in production
+- `/agent/run` has in-process rate limiting; tune `AGENT_RATE_LIMIT_PER_MINUTE`
+- Restrict CORS origins in production (`app/main.py`)
+- Treat `DDA_AGENT_APPROVAL_SECRET` in n8n like a secret; must match `AGENT_APPROVAL_SECRET` if you enable sensitive tools from Slack
 
 ## 📊 Monitoring
 
