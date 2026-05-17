@@ -1,6 +1,6 @@
-# AI-Powered Developer Documentation Chatbot
+# AI-Powered Developer Documentation Assistant
 
-An intelligent chatbot that integrates with Slack and a web UI to answer technical queries using **RAG** and an optional **autonomous agent** (OpenAI tool loop: documentation search, allowlisted HTTP, approval-gated Slack post, working memory, persisted traces).
+An intelligent assistant that integrates with Slack and a web UI to answer technical queries using **RAG** and an optional **autonomous agent** (OpenAI tool loop: documentation search, allowlisted HTTP, approval-gated Slack post, working memory, persisted traces).
 
 ## Live Demo
 
