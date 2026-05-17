@@ -222,6 +222,68 @@
             line-height: 1.4;
         }
 
+        .sample-query-section {
+            margin-top: 1rem;
+        }
+
+        .sample-query-note {
+            padding: 0 0.65rem 0.45rem;
+            font-size: 0.72rem;
+            color: var(--text-faint);
+            line-height: 1.4;
+        }
+
+        .sample-query-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+
+        .sample-query-card {
+            width: 100%;
+            padding: 0.85rem 0.9rem;
+            text-align: left;
+            font-family: inherit;
+            background: var(--bg-2);
+            color: var(--text);
+            border: 1px solid var(--stroke);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s, transform 0.2s var(--ease-out);
+        }
+
+        .sample-query-card:hover:not(:disabled) {
+            border-color: rgba(94, 234, 212, 0.35);
+            background: rgba(94, 234, 212, 0.06);
+            transform: translateY(-1px);
+        }
+
+        .sample-query-card:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        .sample-query-card:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .sample-query-title {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .sample-query-preview {
+            display: block;
+            margin-top: 0.28rem;
+            font-size: 0.72rem;
+            line-height: 1.45;
+            color: var(--text-dim);
+        }
+
         .sidebar-footer {
             margin-top: auto;
             padding-top: 1rem;
@@ -838,6 +900,45 @@
                 <div class="health-meta" id="healthMeta">Connecting to backend…</div>
             </div>
 
+            <div class="sample-query-section" aria-labelledby="sampleQueryLabel">
+                <div class="nav-label" id="sampleQueryLabel">Sample Queries</div>
+                <p class="sample-query-note">Click any prompt to run it in the currently selected mode.</p>
+                <div class="sample-query-list">
+                    <button
+                        type="button"
+                        class="sample-query-card"
+                        data-sample-query="How do I set up this chatbot end-to-end so a Slack message goes through n8n, hits /api/v1/query, and returns a response back in the same channel?"
+                    >
+                        <span class="sample-query-title">Slack to n8n flow</span>
+                        <span class="sample-query-preview">Trace the path from a Slack message into n8n, through the query API, and back into the same channel.</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="sample-query-card"
+                        data-sample-query="What API authentication method is documented in our sample docs, and what is the correct way to include the API key in requests?"
+                    >
+                        <span class="sample-query-title">Authentication method</span>
+                        <span class="sample-query-preview">Ask about the documented auth scheme and the right way to send the API key.</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="sample-query-card"
+                        data-sample-query="If users report UNAUTHORIZED or RATE_LIMITED errors, what do those codes mean and what troubleshooting steps should we take first?"
+                    >
+                        <span class="sample-query-title">Support error triage</span>
+                        <span class="sample-query-preview">Explain the UNAUTHORIZED and RATE_LIMITED codes and suggest the first debugging steps.</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="sample-query-card"
+                        data-sample-query="How can I clear a specific user's conversation memory in this system, and when should memory be reset during support or debug workflows?"
+                    >
+                        <span class="sample-query-title">Memory reset workflow</span>
+                        <span class="sample-query-preview">Cover the endpoint for clearing one user's memory and when support should reset chat state.</span>
+                    </button>
+                </div>
+            </div>
+
             <div class="sidebar-footer">
                 <button type="button" class="btn-ghost" id="openSettings" aria-haspopup="dialog">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -958,6 +1059,7 @@
             const welcomeBlock = el('welcomeBlock');
             const modeQuick = el('modeQuick');
             const modeAgent = el('modeAgent');
+            const sampleQueryButtons = document.querySelectorAll('[data-sample-query]');
             const queryInput = el('queryInput');
             const composerForm = el('composerForm');
             const topbarTitle = el('topbarTitle');
@@ -1042,8 +1144,9 @@
                     const d = await r.json();
                     healthDot.classList.remove('warn', 'err');
                     healthText.textContent = d.index_loaded ? 'Online' : 'Online (no index)';
+                    const vs = d.vector_store || 'local';
                     healthMeta.textContent = d.index_loaded
-                        ? 'Vector index ready · v' + (d.version || '?')
+                        ? ('Vector index ready · ' + vs + ' · v' + (d.version || '?'))
                         : 'Start the app with docs or run ingestion.';
                     if (!d.index_loaded) healthDot.classList.add('warn');
                 } catch (e) {
@@ -1095,10 +1198,19 @@
                 closeSettings();
             });
 
-            /* Auto-resize textarea */
-            queryInput.addEventListener('input', () => {
+            function autoResizeQueryInput() {
                 queryInput.style.height = 'auto';
                 queryInput.style.height = Math.min(queryInput.scrollHeight, 160) + 'px';
+            }
+
+            function setComposerText(text) {
+                queryInput.value = text || '';
+                autoResizeQueryInput();
+            }
+
+            /* Auto-resize textarea */
+            queryInput.addEventListener('input', () => {
+                autoResizeQueryInput();
             });
 
             composerForm.addEventListener('submit', (e) => {
@@ -1111,6 +1223,20 @@
                     e.preventDefault();
                     if (!isLoading) sendMessage();
                 }
+            });
+
+            sampleQueryButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    if (isLoading) {
+                        return;
+                    }
+                    const sampleQuery = button.getAttribute('data-sample-query') || '';
+                    if (!sampleQuery) {
+                        return;
+                    }
+                    setComposerText(sampleQuery);
+                    sendMessage();
+                });
             });
 
             function avatarSvgUser() {
@@ -1197,6 +1323,9 @@
                 isLoading = loading;
                 el('sendButton').disabled = loading;
                 queryInput.disabled = loading;
+                sampleQueryButtons.forEach((button) => {
+                    button.disabled = loading;
+                });
                 setTyping(loading);
                 if (!loading) queryInput.focus();
             }
