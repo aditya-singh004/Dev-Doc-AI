@@ -1,0 +1,65 @@
+[33m70f8e8e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m new features
+ .claude/worktrees/affectionate-driscoll |    1 [32m+[m
+ .env.example                            |   69 [32m++[m
+ README.md                               |   94 [32m+[m[31m-[m
+ app/api/routes.py                       |  166 [32m+++[m[31m-[m
+ app/config.py                           |   22 [32m+[m[31m-[m
+ app/main.py                             |    2 [32m+[m
+ app/models.py                           |   59 [32m+[m[31m-[m
+ app/services/__init__.py                |    8 [32m+[m[31m-[m
+ app/services/agent_service.py           |  665 [32m++++++++++++++[m
+ app/services/agent_trace.py             |   44 [32m+[m
+ app/services/agent_working_memory.py    |  108 [32m+++[m
+ app/utils/agent_rate_limit.py           |   40 [32m+[m
+ docker-compose.yml                      |   20 [32m+[m
+ docs/SLACK_SETUP.md                     |   21 [32m+[m
+ frontend/index.html                     | 1452 [32m+++++++++++++++++++++++++[m[31m------[m
+ n8n/workflow.json                       |   49 [32m+[m[31m-[m
+ render.yaml                             |   12 [32m+[m
+ temp.html                               |  179 [32m++++[m
+ 18 files changed, 2726 insertions(+), 285 deletions(-)
+[33m7c52f8c[m[33m ([m[1;32mclaude/affectionate-driscoll[m[33m)[m Add live Render demo links
+ README.md | 6 [32m++++++[m
+ 1 file changed, 6 insertions(+)
+[33m2a8cc49[m frontend updated
+ frontend/index.html | 5 [32m+++[m[31m--[m
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+[33ma7e4f36[m Making things deployment ready.
+ Dockerfile                  |  2 [32m+[m[31m-[m
+ Procfile                    |  1 [32m+[m
+ README.md                   | 35 [32m++++++++++++++++++++++++++++++++[m[31m-[m
+ app/config.py               | 16 [32m+++++++++++++++[m
+ app/main.py                 |  6 [32m+++[m[31m---[m
+ app/services/rag_service.py | 48 [32m+++++++++++++++++++++++++++++++++++++++++++[m[31m--[m
+ render.yaml                 | 29 [32m+++++++++++++++++++++++++++[m
+ requirements-render.txt     | 22 [32m+++++++++++++++++++++[m
+ 8 files changed, 152 insertions(+), 7 deletions(-)
+[33mf10968f[m minor fix
+ app/services/rag_service.py | 16 [32m+++++++++++++[m[31m---[m
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+[33mdf05754[m Initial commit
+ .gitignore                     | 129 [32m++++++++++[m
+ Dockerfile                     |  39 [32m++++[m
+ README.md                      | 296 [32m+++++++++++++++++++++++[m
+ app/__init__.py                |   1 [32m+[m
+ app/api/__init__.py            |   4 [32m+[m
+ app/api/routes.py              | 191 [32m+++++++++++++++[m
+ app/config.py                  |  62 [32m+++++[m
+ app/main.py                    | 119 [32m++++++++++[m
+ app/models.py                  |  97 [32m++++++++[m
+ app/services/__init__.py       |   6 [32m+[m
+ app/services/llm_service.py    | 181 [32m+++++++++++++++[m
+ app/services/memory_service.py | 137 [32m+++++++++++[m
+ app/services/rag_service.py    | 168 [32m+++++++++++++[m
+ app/utils/__init__.py          |   5 [32m+[m
+ app/utils/logger.py            |  49 [32m++++[m
+ app/utils/text_cleaner.py      | 138 [32m+++++++++++[m
+ deeplearning.mplstyle          | 517 [32m+++++++++++++++++++++++++++++++++++++++++[m
+ docker-compose.yml             |  53 [32m+++++[m
+ docs/SLACK_SETUP.md            | 172 [32m++++++++++++++[m
+ docs/sample_api_docs.md        | 174 [32m++++++++++++++[m
+ frontend/index.html            | 353 [32m++++++++++++++++++++++++++++[m
+ n8n/workflow.json              | 296 [32m+++++++++++++++++++++++[m
+ requirements.txt               |  37 [32m+++[m
+ scripts/ingest_docs.py         | 163 [32m+++++++++++++[m
+ 24 files changed, 3387 insertions(+)

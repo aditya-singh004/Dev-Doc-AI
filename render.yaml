@@ -19,6 +19,20 @@ services:
         value: ./docs
       - key: INDEX_STORAGE_PATH
         value: /tmp/storage/index
+      - key: VECTOR_STORE
+        value: pinecone
+      - key: PINECONE_INDEX_NAME
+        value: dda-docs
+      - key: PINECONE_CLOUD
+        value: aws
+      - key: PINECONE_REGION
+        value: us-east-1
+      - key: PINECONE_METRIC
+        value: cosine
+      - key: PINECONE_CREATE_INDEX
+        value: "true"
+      - key: PINECONE_API_KEY
+        sync: false
       - key: OPENAI_MODEL
         value: gpt-4o-mini
       - key: EMBEDDING_MODEL

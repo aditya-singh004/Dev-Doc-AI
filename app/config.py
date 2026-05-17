@@ -36,6 +36,17 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 50
     TOP_K_RESULTS: int = 5
     
+    # Vector store: local (disk) | pinecone | auto (pinecone if API key + index name set)
+    VECTOR_STORE: str = "local"
+    PINECONE_API_KEY: Optional[str] = None
+    PINECONE_INDEX_NAME: str = "dda-docs"
+    PINECONE_CLOUD: str = "aws"
+    PINECONE_REGION: str = "us-east-1"
+    PINECONE_DIMENSION: Optional[int] = None
+    PINECONE_METRIC: str = "cosine"
+    PINECONE_NAMESPACE: str = ""
+    PINECONE_CREATE_INDEX: bool = True
+
     # Documentation Settings
     DOCS_DIRECTORY: str = "./docs"
     INDEX_STORAGE_PATH: str = "./storage/index"
@@ -78,6 +89,13 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
+
+    @field_validator("PINECONE_DIMENSION", mode="before")
+    @classmethod
+    def parse_pinecone_dimension(cls, value):
+        if value in (None, "", "0"):
+            return None
+        return int(value)
 
     @field_validator("DEBUG", mode="before")
     @classmethod

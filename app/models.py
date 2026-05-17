@@ -68,6 +68,9 @@ class HealthResponse(BaseModel):
     version: str = Field(..., description="API version")
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     index_loaded: bool = Field(..., description="Whether documentation index is loaded")
+    vector_store: Optional[str] = Field(
+        None, description="Active vector backend: local or pinecone"
+    )
 
 
 class SlackMessage(BaseModel):

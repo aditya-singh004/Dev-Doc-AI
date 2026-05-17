@@ -21,6 +21,7 @@ from app.config import settings
 from app.utils.logger import logger
 from app.utils.text_cleaner import clean_slack_message
 from app.services.rag_service import RAGService
+from app.services.vector_store import use_pinecone
 from app.services.llm_service import LLMService
 from app.services.memory_service import conversation_memory
 from app.services.agent_service import DocumentationAgentService
@@ -54,7 +55,8 @@ async def health_check():
         status="healthy",
         version=settings.APP_VERSION,
         timestamp=datetime.utcnow(),
-        index_loaded=rag_service.is_ready
+        index_loaded=rag_service.is_ready,
+        vector_store="pinecone" if use_pinecone() else "local",
     )
 
 
@@ -328,6 +330,10 @@ async def get_stats():
         "agent_working_memory": agent_working_memory.stats(),
         "config": {
             "llm_provider": settings.LLM_PROVIDER,
+            "vector_store": settings.VECTOR_STORE,
+            "pinecone_index": settings.PINECONE_INDEX_NAME
+            if settings.PINECONE_API_KEY
+            else None,
             "chunk_size": settings.CHUNK_SIZE,
             "top_k": settings.TOP_K_RESULTS,
             "agent_max_iterations": settings.AGENT_MAX_ITERATIONS,

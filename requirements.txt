@@ -13,6 +13,10 @@ llama-index-embeddings-gemini>=0.1.0
 llama-index-embeddings-huggingface>=0.1.0
 llama-index-llms-openai>=0.1.0
 llama-index-readers-file>=0.1.0
+llama-index-vector-stores-pinecone>=0.1.0
+
+# Vector database
+pinecone>=5.0.0
 
 # LLM providers
 openai>=1.10.0
