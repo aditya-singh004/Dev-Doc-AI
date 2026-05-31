@@ -1,0 +1,62 @@
+[
+  {
+    "id": "auth_header",
+    "query": "How should clients authenticate when calling the API?",
+    "expected_sources": ["sample_api_docs.md"]
+  },
+  {
+    "id": "api_key_generation",
+    "query": "Where do I generate an API key for the sample API?",
+    "expected_sources": ["sample_api_docs.md"]
+  },
+  {
+    "id": "rate_limits",
+    "query": "How many requests per minute are free and pro users allowed?",
+    "expected_sources": ["sample_api_docs.md"]
+  },
+  {
+    "id": "webhook_verification",
+    "query": "How do I verify that a webhook payload really came from the API?",
+    "expected_sources": ["sample_api_docs.md"]
+  },
+  {
+    "id": "slack_bot_scopes",
+    "query": "Which bot scopes are needed so the Slack app can read mentions and send messages?",
+    "expected_sources": ["SLACK_SETUP.md"]
+  },
+  {
+    "id": "slack_event_delivery",
+    "query": "Where do I tell Slack to send mention events to the n8n webhook?",
+    "expected_sources": ["SLACK_SETUP.md"]
+  },
+  {
+    "id": "agent_toggle",
+    "query": "What setting switches Slack traffic to the autonomous agent path instead of the quick reply path?",
+    "expected_sources": ["SLACK_SETUP.md", "support_workflows.md"]
+  },
+  {
+    "id": "clear_chat_history",
+    "query": "How do I wipe one user's saved chat history during debugging?",
+    "expected_sources": ["support_workflows.md"]
+  },
+  {
+    "id": "unauthorized_error",
+    "query": "What does an UNAUTHORIZED support error usually mean?",
+    "expected_sources": ["support_workflows.md"]
+  },
+  {
+    "id": "quick_query_flow",
+    "query": "What is the end-to-end quick query flow from Slack to the backend?",
+    "expected_sources": ["support_workflows.md"]
+  },
+  {
+    "id": "slack_sensitive_tools",
+    "query": "How do I let the agent post back to Slack only after approval?",
+    "expected_sources": ["SLACK_SETUP.md"]
+  },
+  {
+    "id": "channel_restrictions",
+    "query": "How can I restrict the bot so it only works in specific Slack channels?",
+    "expected_sources": ["SLACK_SETUP.md"]
+  }
+]
